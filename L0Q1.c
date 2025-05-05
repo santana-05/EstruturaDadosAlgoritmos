@@ -27,7 +27,7 @@ int parsearPontos(const char *texto, Coordenada vetor[]) {
     const char *atual = texto;
 
     while (*atual) {
-        if (*atual == '(') {
+        if (*atual == '(' ) {
             if (sscanf(atual, "(%d,%d)%n", &x, &y, &deslocamento) == 2 ||
                 sscanf(atual, " (%d,%d)%n", &x, &y, &deslocamento) == 2 ||
                 sscanf(atual, "( %d , %d )%n", &x, &y, &deslocamento) == 2 ||
