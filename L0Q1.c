@@ -2,114 +2,144 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <ctype.h>
 
-#define MAX_LINHA 500
-#define MAX_PONTOS 300
+#define MAX_LINE_LENGTH 500
+#define MAX_POINTS 300
 
 typedef struct {
     int x;
     int y;
-} Coordenada;
+} Point;
 
-float calcularDistanciaOrigem(Coordenada pt) {
-    return sqrt(pt.x * pt.x + pt.y * pt.y);
+
+float distanceFromOrigin(Point p);
+float distanceBetweenPoints(Point a, Point b);
+int parsePoints(const char *input, Point points[]);
+int comparePoints(const void *a, const void *b);
+void writeResults(FILE *output, Point sortedPoints[], int count, float pathDistance, float shortcut);
+void processInputFile(FILE *input, FILE *output);
+
+int main() {
+    FILE *input = fopen("L0Q1.in", "r");
+    FILE *output = fopen("L0Q1.out", "w");
+
+    if (!input || !output) {
+        perror("Erro ao abrir arquivos");
+        return EXIT_FAILURE;
+    }
+
+    processInputFile(input, output);
+
+    fclose(input);
+    fclose(output);
+    return EXIT_SUCCESS;
 }
 
-float calcularDistancia(Coordenada a, Coordenada b) {
-    int deltaX = a.x - b.x;
-    int deltaY = a.y - b.y;
-    return sqrt(deltaX * deltaX + deltaY * deltaY);
+
+float distanceFromOrigin(Point p) {
+    return sqrtf(p.x * p.x + p.y * p.y);
 }
 
-int parsearPontos(const char *texto, Coordenada vetor[]) {
-    int qtd = 0;
-    int x, y, deslocamento;
-    const char *atual = texto;
 
-    while (*atual) {
-        if (*atual == '(' ) {
-            if (sscanf(atual, "(%d,%d)%n", &x, &y, &deslocamento) == 2 ||
-                sscanf(atual, " (%d,%d)%n", &x, &y, &deslocamento) == 2 ||
-                sscanf(atual, "( %d , %d )%n", &x, &y, &deslocamento) == 2 ||
-                sscanf(atual, " ( %d , %d ) %n", &x, &y, &deslocamento) == 2) {
-                vetor[qtd].x = x;
-                vetor[qtd].y = y;
-                qtd++;
-                atual += deslocamento;
+float distanceBetweenPoints(Point a, Point b) {
+    int dx = a.x - b.x;
+    int dy = a.y - b.y;
+    return sqrtf(dx * dx + dy * dy);
+}
+
+
+int parsePoints(const char *input, Point points[]) {
+    int count = 0;
+    const char *ptr = input;
+    
+    while (*ptr) {
+        
+        while (isspace(*ptr)) ptr++;
+        
+        if (*ptr == '(') {
+            Point p;
+            int charsRead;
+            
+            
+            if (sscanf(ptr, "(%d,%d)%n", &p.x, &p.y, &charsRead) == 2 ||
+                sscanf(ptr, " ( %d , %d ) %n", &p.x, &p.y, &charsRead) == 2) {
+                
+                points[count++] = p;
+                ptr += charsRead;
                 continue;
             }
         }
-        atual++;
+        ptr++;
     }
-
-    return qtd;
+    
+    return count;
 }
 
-int compararPorOrigem(const void *p1, const void *p2) {
-    Coordenada *a = (Coordenada *)p1;
-    Coordenada *b = (Coordenada *)p2;
-    float da = calcularDistanciaOrigem(*a);
-    float db = calcularDistanciaOrigem(*b);
-    return (da > db) - (da < db);
+
+int comparePoints(const void *a, const void *b) {
+    const Point *p1 = (const Point *)a;
+    const Point *p2 = (const Point *)b;
+    
+    float d1 = distanceFromOrigin(*p1);
+    float d2 = distanceFromOrigin(*p2);
+    
+    if (d1 < d2) return -1;
+    if (d1 > d2) return 1;
+    return 0;
 }
 
-void escreverResultado(FILE *arq, Coordenada ordenados[], int total, float percurso, float atalho) {
-    fprintf(arq, "points");
-    for (int i = 0; i < total; i++) {
-        fprintf(arq, " (%d,%d)", ordenados[i].x, ordenados[i].y);
+
+void writeResults(FILE *output, Point sortedPoints[], int count, float pathDistance, float shortcut) {
+    fprintf(output, "points");
+    for (int i = 0; i < count; i++) {
+        fprintf(output, " (%d,%d)", sortedPoints[i].x, sortedPoints[i].y);
     }
-    fprintf(arq, " distance %.2f shortcut %.2f\n", percurso, atalho);
+    fprintf(output, " distance %.2f shortcut %.2f\n", pathDistance, shortcut);
 }
 
-int main() {
-    FILE *entrada = fopen("L0Q1.in", "r");
-    FILE *saida = fopen("L0Q1.out", "w");
 
-    if (!entrada || !saida) {
-        perror("Falha ao abrir arquivos");
-        return 1;
-    }
-
-    char buffer[MAX_LINHA];
-    Coordenada lista[MAX_PONTOS];
-    Coordenada ordenados[MAX_PONTOS];
-
-    while (fgets(buffer, sizeof(buffer), entrada)) {
-        size_t tam = strlen(buffer);
-        if (tam > 0 && buffer[tam - 1] == '\n') {
-            buffer[tam - 1] = '\0';
-        }
-
-        int vazia = 1;
-        for (size_t i = 0; i < tam; i++) {
-            if (buffer[i] != ' ' && buffer[i] != '\t' && buffer[i] != '\r') {
-                vazia = 0;
+void processInputFile(FILE *input, FILE *output) {
+    char line[MAX_LINE_LENGTH];
+    
+    while (fgets(line, sizeof(line), input)) {
+        
+        line[strcspn(line, "\r\n")] = '\0';
+        
+        
+        int isEmpty = 1;
+        for (char *ptr = line; *ptr; ptr++) {
+            if (!isspace(*ptr)) {
+                isEmpty = 0;
                 break;
             }
         }
-        if (vazia || buffer[0] == '\0') continue;
-
-        int totalPontos = parsearPontos(buffer, lista);
-        if (totalPontos == 0) {
-            fprintf(saida, "points distance 0.00 shortcut 0.00\n");
+        
+        if (isEmpty) continue;
+        
+        Point points[MAX_POINTS];
+        Point sortedPoints[MAX_POINTS];
+        
+        int pointCount = parsePoints(line, points);
+        
+        if (pointCount == 0) {
+            fprintf(output, "points distance 0.00 shortcut 0.00\n");
             continue;
         }
-
-        memcpy(ordenados, lista, totalPontos * sizeof(Coordenada));
-        qsort(ordenados, totalPontos, sizeof(Coordenada), compararPorOrigem);
-
-        float distanciaPercorrida = 0;
-        for (int i = 0; i < totalPontos - 1; i++) {
-            distanciaPercorrida += calcularDistancia(lista[i], lista[i + 1]);
+        
+        
+        memcpy(sortedPoints, points, pointCount * sizeof(Point));
+        qsort(sortedPoints, pointCount, sizeof(Point), comparePoints);
+        
+        
+        float totalDistance = 0;
+        for (int i = 0; i < pointCount - 1; i++) {
+            totalDistance += distanceBetweenPoints(points[i], points[i + 1]);
         }
-
-        float atalho = calcularDistancia(lista[0], lista[totalPontos - 1]);
-
-        escreverResultado(saida, ordenados, totalPontos, distanciaPercorrida, atalho);
+        
+        
+        float shortcut = distanceBetweenPoints(points[0], points[pointCount - 1]);
+        
+        writeResults(output, sortedPoints, pointCount, totalDistance, shortcut);
     }
-
-    fclose(entrada);
-    fclose(saida);
-
-    return 0;
 }
